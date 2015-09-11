@@ -1,0 +1,100 @@
+<!doctype html>
+<html>
+<head>
+    <title>SPA Demo</title>
+    <style>
+        nav {
+            display: flex;
+            flex-flow: row nowrap;
+        }
+        nav > a {
+            flex: 1;
+            padding: .5em;
+            border: 1px solid #ccc;
+            background: #eee;
+            text-align: center;
+            font-family: sans-serif;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        nav > a:hover {
+            background: #e5e5e5;
+        }
+
+        .viewport {
+            font-size: 5em;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="/page1">Page 1</a>
+        <a href="/page2">Page 2</a>
+        <a href="/securePage">Secure Page</a>
+    </nav>
+    <section class="viewport"></section>
+    <script>
+    (function () {
+            //getCookie -> String -> [[String, String]]
+        const getCookie = (name) => document.cookie.split('; ').map(cookie => cookie.replace(/^([^=]+)(?:=)/, '$1;').split(';')).filter(cookie => cookie[0] === name)[0],
+
+            //getTokenFromCookie -> [[String, String]] -> String
+            getTokenFromCookie = (cookie) => (cookie || [])[1],
+
+            //render -> String -> Undefined
+            render = (container => content => container.innerHTML = content)(document.querySelector('.viewport')),
+
+            routes = {
+                '/'(data) { render('Home'); },
+                '/page1'(data) { render('Page 1'); },
+                '/page2'(data) { render('Page 2'); },
+                '/securePage'(data) {
+                    fetch('/api/secure', {
+                        headers: {'X-Token': getTokenFromCookie(getCookie('X-Token'))}
+                    }).then(resp => {
+                        resp.json().then(json => {
+                            if (resp.status === 401) {
+                                if (json.location) {
+                                    window.location = `${json.location}?from=${encodeURIComponent(window.location.href)}`;
+                                } else { render(`Secure Page\nNot Authorized`) }
+                            } else {
+                                render(`Secure Page\n${JSON.stringify(json)}`);
+                            }
+                        });
+                    });
+                },
+                '404'() { render('404 Not Found.'); }
+            },
+            Router = function (routes) {
+                const router = loc => (routes[loc] || routes['404'])();
+
+                // Handle history changes.
+                window.addEventListener('popstate', popEvt => router(location.pathname));
+
+                // Bootstrap the state.
+                window.addEventListener('DOMContentLoaded', function DCL(DCLEvt) {
+                    window.removeEventListener('DOMContentLoaded', DCL);
+                    router(location.pathname);
+                });
+
+                // Handle internal links
+                document.body.addEventListener('click', e => {
+                    const loc = e.target.getAttribute('href') || '';
+
+                    // validate it is an internal link
+                    if (loc && !loc.match(/^(\w+:)|^(\/\/)+/)) {
+                        e.preventDefault();
+                        history.pushState({}, null, loc);
+                        router(loc);
+                    }
+                });
+
+                // Expose the routing method
+                return router;
+            },
+            router = Router(routes);
+    })();
+    </script>
+</body>
+</html>
