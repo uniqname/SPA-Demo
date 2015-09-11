@@ -30,7 +30,7 @@
                 req.on('end', function () {
                     if (form) {
                         resp.writeHead(302, {
-                            'Set-Cookie': 'X-Token=true',
+                            'Set-Cookie': `X-Token=true; expires=${new Date(new Date().getTime()+1000).toUTCString()}`,
                             'Location': decodeURIComponent(url.parse(req.url, true).query.from)
                         });
                         resp.end();
